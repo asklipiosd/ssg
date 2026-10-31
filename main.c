@@ -1,0 +1,230 @@
+#include <mkdio.h>
+#include <stdio.h>
+#include <dirent.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
+#include <libgen.h>
+
+#include "templ.h"
+
+typedef enum {F, D} fsobj;
+
+typedef struct {
+	char *given;
+	char *output;
+	bool success;
+} templStatus;
+
+typedef struct {
+	char **list;
+	size_t len;
+	size_t cap;
+} charList;
+
+typedef struct {
+	char     *siteName;
+	char       *navbar;
+	FILE      *content;
+} renderData;
+
+
+int walk(const char *c, int (*callback)(fsobj, char *, void *), void *usr) {
+	DIR *d = opendir(c);
+	if (d == NULL) {
+		fprintf(stderr, "couldn't open dir %s\n", c);
+		exit(1);
+	}
+
+	struct dirent *de;
+	while ((de = readdir(d)) != NULL ) {
+		if (!strcmp(de->d_name, ".")) {
+		} else if (!strcmp(de->d_name, "..")) {
+		} else if (de->d_type == DT_DIR) {
+			// -- [dir] ----------------------------------------------------------------
+			int n = strlen(c) + strlen(de->d_name) + 2;
+			char nd[n];
+			snprintf(nd, n, "%s/%s", c, de->d_name);
+			if (callback(D, nd, usr) == -1) {
+				return -1;
+			}
+			if (walk(nd, callback, usr) == -1) {
+				return -1;
+
+			}
+		} else if (de->d_type == DT_REG) {
+			// -- [file] ---------------------------------------------------------------
+			int n = strlen(c) + strlen(de->d_name) + 2;
+			char nd[n];
+			snprintf(nd, n, "%s/%s", c, de->d_name);
+			if (callback(F, nd, usr) == -1) {
+				return -1;
+			}
+		}
+	}
+	closedir(d);
+	return 0;
+}
+
+
+// -- [find template file] ----------------------------------------------------
+char *stripExt(const char *d) {
+	const char *dot = strrchr(d, '.');
+	const char *slash = strrchr(d, '/');
+	size_t len = (dot && (!slash || dot > slash)) ? (size_t)(dot - d) : strlen(d);
+	char *r = malloc(len + 1);
+	memcpy(r, d, len);
+	r[len] = '\0';
+	return r;
+}
+
+char *baseNoExt(const char *p) {
+	const char *slash = strrchr(p, '/');
+	return stripExt(slash ? slash + 1 : p);
+}
+
+int templCb(fsobj t, char *c, void *data) {
+	templStatus* d = (templStatus *) data;
+	char *fname = stripExt(d->given);
+	if (t == F){
+		char *one = baseNoExt(fname);
+		char *two = baseNoExt(c);
+		bool yes  = !strcmp(one, two);
+		free(one);
+		free(two);
+		if (yes) {
+			d->success = true;
+			d->output = malloc(sizeof(char) * (strlen(c) + 1));
+			strcpy(d->output, c);
+			return -1;
+		}
+	}
+	return 0;
+}
+
+bool findTemplate(char* c, char **out) {
+	templStatus d = {
+		.output = NULL,
+		.success = false,
+		.given = c,
+	};
+	walk("./templates", &templCb, &d);
+	if (d.success) {	
+		*out = d.output;
+		return true;
+	}
+	return false;
+}
+
+// -- [structure] -------------------------------------------------------------
+//
+// templates
+// 	| index.html
+// 	| menu.html
+// 	| foo.html
+// assets
+// 	| img.png
+// articles
+// 	| programming
+// 		| c_sucks.md        -> programming/c_sucks.html
+// 		| I_stil_use_c.md   -> programming/I_stil_use_c.html
+// 	| about
+// 		| about.md          -> about.html
+// out                              -> self explanatory
+
+void appendFileList(charList *s, char *c) {
+	if (s->len < s->cap) {
+	} else {
+ 		s->cap = 2 * s->cap + 1;
+		s->list = realloc(s->list, sizeof(char *) * s->cap);
+	}
+	s->list[s->len] = c;
+	s->len++;
+}
+
+int inputCb(fsobj t, char *c, void *data) {
+	charList *list = (charList *) data;
+	if (t == F) {
+		char *elem = malloc(sizeof(char) * (strlen(c) + 1));
+		strcpy(elem, c);
+		appendFileList(list, elem);
+	}
+	return 0;
+}
+
+char *renderCb(char *c, void *user) {
+	renderData *data = (renderData *) user;
+	if (!strcmp(c, "content")) {
+		if (fseek(data->content, 0, SEEK_END) != 0) return NULL;
+		long size = ftell(data->content);
+		if (size < 0) return NULL;
+		rewind(data->content);
+		
+		char *buf = malloc((size_t)size + 1);
+		if (!buf) return NULL;
+		
+		size_t n = fread(buf, 1, (size_t)size, data->content);
+		buf[n] = '\0';
+		mkd_flag_t *flags = mkd_flags();
+		MMIOT *m = mkd_string(buf, n, flags);
+		mkd_compile(m, flags);
+		char *html;
+		mkd_document(m, &html);
+		mkd_free_flags(flags);
+		return html;
+	} else if (!strcmp(c, "sitename")) {
+		return data->siteName;
+	} else if (!strcmp(c, "navbar")) {
+		return data->navbar;
+	} else {
+		char *ptr = malloc(sizeof(char) * 1);
+		ptr[0] = '\0';
+		return ptr;
+	}
+}
+
+char *genNavBar() {
+	char *thing = malloc(sizeof(char) * 2);
+	thing[0] = '\0';
+	return thing;
+}
+
+int main() {
+//	FILE *f = fopen("ex.md", "r");
+//	FILE *fo = fopen("out.html", "w");
+//	MMIOT *m = mkd_in(f, mkd_flags());
+//	markdown(m, fo, mkd_flags());;
+	charList input= {
+		.cap = 5,
+		.len = 0,
+		.list = malloc(sizeof(char *) * 5)
+	};
+	walk("articles", &inputCb, (void *) &input);
+	for (int i = 0; i < input.len; ++i) {
+		char *template;
+		FILE *templFile;
+		if (findTemplate(input.list[i], &template)) {
+			templFile = fopen(template, "r");
+		} else {
+			findTemplate("index.html", &template);
+			templFile = fopen(template, "r");
+		}
+		char *base = basename(input.list[i]);
+		char *nameNoExt = stripExt(base);
+		char outName[
+			strlen("out/")                   +
+			strlen(nameNoExt)                +
+			strlen(".html")                  +
+			1
+		];
+		sprintf(outName, "out/%s.html", nameNoExt);
+		FILE *outFile = fopen(outName, "w");
+		renderData data = {
+			.siteName = "asklipiosd",
+			.navbar = genNavBar(),
+			.content = fopen(input.list[i], "r")
+		};
+		renderTemplateFile(templFile, outFile, &renderCb, &data);
+		fclose(templFile);
+	}
+}
