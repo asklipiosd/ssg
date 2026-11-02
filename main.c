@@ -24,7 +24,6 @@ typedef struct {
 
 typedef struct {
 	char     *siteName;
-	char       *navbar;
 	FILE      *content;
 } renderData;
 
@@ -174,8 +173,6 @@ char *renderCb(char *c, void *user) {
 		return html;
 	} else if (!strcmp(c, "sitename")) {
 		return data->siteName;
-	} else if (!strcmp(c, "navbar")) {
-		return data->navbar;
 	} else {
 		char *ptr = malloc(sizeof(char) * 1);
 		ptr[0] = '\0';
@@ -183,11 +180,6 @@ char *renderCb(char *c, void *user) {
 	}
 }
 
-char *genNavBar() {
-	char *thing = malloc(sizeof(char) * 2);
-	thing[0] = '\0';
-	return thing;
-}
 
 int main() {
 //	FILE *f = fopen("ex.md", "r");
@@ -199,7 +191,15 @@ int main() {
 		.len = 0,
 		.list = malloc(sizeof(char *) * 5)
 	};
+	FILE *sitemapFile = fopen("out/sitemap.html", "w");
+	str sitemap;
+	initChar(&sitemap);
+	for (int i = 0; i < 4; i++) {
+		appendChar(&sitemap, "<ul>"[i]);
+	}
+
 	walk("articles", &inputCb, (void *) &input);
+
 	for (int i = 0; i < input.len; ++i) {
 		char *template;
 		FILE *templFile;
@@ -221,10 +221,37 @@ int main() {
 		FILE *outFile = fopen(outName, "w");
 		renderData data = {
 			.siteName = "asklipiosd",
-			.navbar = genNavBar(),
 			.content = fopen(input.list[i], "r")
 		};
 		renderTemplateFile(templFile, outFile, &renderCb, &data);
 		fclose(templFile);
+
+		char *sitebuf = malloc(
+			strlen("<ul><a href=\"\"></a></ul>\n") +
+			strlen(outName)                      +
+			strlen(nameNoExt)
+		);
+		sprintf(sitebuf, "<li><a href=\"%s\">%s</a></li>\n", outName, nameNoExt);
+		int len = strlen(sitebuf);
+		for (int y = 0; y < len; ++y) {
+			appendChar(&sitemap, sitebuf[y]);
+		}
 	}
+	for (int i = 0; i < 5; i++) {
+		appendChar(&sitemap, "</ul>"[i]);
+	}
+	appendChar(&sitemap, '\0');
+	char *template;
+	FILE *templFile;
+	if (findTemplate("sitemap.html", &template)) {
+		templFile = fopen(template, "r");
+	} else {
+		findTemplate("index.html", &template);
+		templFile = fopen(template, "r");
+	}
+	renderData data = {
+		.siteName = "asklipiosd",
+		.content = sitemap.buf
+	};
+	renderTemplateFile(templFile, sitemapFile, &renderCb, &sitemap);
 }

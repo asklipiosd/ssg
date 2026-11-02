@@ -6,12 +6,6 @@
 
 #include "templ.h"
 
-typedef struct {
-	size_t len;
-	size_t cap;
-	char *buf;
-} str;
-
 void initChar(str *s) {
 	s->cap = 5;
 	s->len = 0;
