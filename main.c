@@ -23,8 +23,9 @@ typedef struct {
 } charList;
 
 typedef struct {
-	char     *siteName;
-	FILE      *content;
+	char         *siteName;
+	FILE      *contentFile;
+	char          *content;
 } renderData;
 
 
@@ -153,23 +154,26 @@ int inputCb(fsobj t, char *c, void *data) {
 
 char *renderCb(char *c, void *user) {
 	renderData *data = (renderData *) user;
-	if (!strcmp(c, "content")) {
-		if (fseek(data->content, 0, SEEK_END) != 0) return NULL;
-		long size = ftell(data->content);
+        if (!strcmp(c, "content")) {
+                if (data->content[0] != '\0') {
+		  return data->content;
+                }
+		if (fseek(data->contentFile, 0, SEEK_END) != 0) return NULL;
+		long size = ftell(data->contentFile);
 		if (size < 0) return NULL;
-		rewind(data->content);
+		rewind(data->contentFile);
 		
 		char *buf = malloc((size_t)size + 1);
 		if (!buf) return NULL;
 		
-		size_t n = fread(buf, 1, (size_t)size, data->content);
+		size_t n = fread(buf, 1, (size_t)size, data->contentFile);
 		buf[n] = '\0';
 		mkd_flag_t *flags = mkd_flags();
 		MMIOT *m = mkd_string(buf, n, flags);
 		mkd_compile(m, flags);
 		char *html;
 		mkd_document(m, &html);
-		mkd_free_flags(flags);
+                mkd_free_flags(flags);
 		return html;
 	} else if (!strcmp(c, "sitename")) {
 		return data->siteName;
@@ -219,19 +223,20 @@ int main() {
 		];
 		sprintf(outName, "out/%s.html", nameNoExt);
 		FILE *outFile = fopen(outName, "w");
-		renderData data = {
-			.siteName = "asklipiosd",
-			.content = fopen(input.list[i], "r")
+                renderData data = {
+                  .siteName = "asklipiosd",
+		  .content = "\0",
+			.contentFile = fopen(input.list[i], "r")
 		};
 		renderTemplateFile(templFile, outFile, &renderCb, &data);
 		fclose(templFile);
 
-		char *sitebuf = malloc(
-			strlen("<ul><a href=\"\"></a></ul>\n") +
-			strlen(outName)                      +
-			strlen(nameNoExt)
-		);
-		sprintf(sitebuf, "<li><a href=\"%s\">%s</a></li>\n", outName, nameNoExt);
+                char *sitebuf = malloc(strlen("<ul><a href=\"\"></a></ul>\n") +
+                                       strlen(outName) + strlen(nameNoExt) + 1);
+                char *nameLink =
+                    malloc(strlen(nameNoExt) + strlen(".html") + 1);
+		sprintf(nameLink, "%s.html", nameNoExt);
+		sprintf(sitebuf, "<li><a href=\"%s\">%s</a></li>\n", nameLink, nameNoExt);
 		int len = strlen(sitebuf);
 		for (int y = 0; y < len; ++y) {
 			appendChar(&sitemap, sitebuf[y]);
@@ -253,5 +258,5 @@ int main() {
 		.siteName = "asklipiosd",
 		.content = sitemap.buf
 	};
-	renderTemplateFile(templFile, sitemapFile, &renderCb, &sitemap);
+	renderTemplateFile(templFile, sitemapFile, &renderCb, &data);
 }
