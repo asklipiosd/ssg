@@ -28,6 +28,11 @@ typedef struct {
 	char          *content;
 } renderData;
 
+FILE *xfopen(const char *path, const char *mode) {
+    FILE *f = fopen(path, mode);
+    if (!f) { perror(path); exit(1); }
+    return f;
+}
 
 int walk(const char *c, int (*callback)(fsobj, char *, void *), void *usr) {
 	DIR *d = opendir(c);
@@ -186,8 +191,8 @@ char *renderCb(char *c, void *user) {
 
 
 int main() {
-//	FILE *f = fopen("ex.md", "r");
-//	FILE *fo = fopen("out.html", "w");
+//	FILE *f = xfopen("ex.md", "r");
+//	FILE *fo = xfopen("out.html", "w");
 //	MMIOT *m = mkd_in(f, mkd_flags());
 //	markdown(m, fo, mkd_flags());;
 	charList input= {
@@ -195,7 +200,7 @@ int main() {
 		.len = 0,
 		.list = malloc(sizeof(char *) * 5)
 	};
-	FILE *sitemapFile = fopen("out/sitemap.html", "w");
+	FILE *sitemapFile = xfopen("out/sitemap.html", "w");
 	str sitemap;
 	initChar(&sitemap);
 	for (int i = 0; i < 4; i++) {
@@ -208,10 +213,10 @@ int main() {
 		char *template;
 		FILE *templFile;
 		if (findTemplate(input.list[i], &template)) {
-			templFile = fopen(template, "r");
+			templFile = xfopen(template, "r");
 		} else {
 			findTemplate("index.html", &template);
-			templFile = fopen(template, "r");
+			templFile = xfopen(template, "r");
 		}
 		char *base = basename(input.list[i]);
 		char *nameNoExt = stripExt(base);
@@ -222,11 +227,11 @@ int main() {
 			1
 		];
 		sprintf(outName, "out/%s.html", nameNoExt);
-		FILE *outFile = fopen(outName, "w");
+		FILE *outFile = xfopen(outName, "w");
                 renderData data = {
                   .siteName = "asklipiosd",
 		  .content = "\0",
-			.contentFile = fopen(input.list[i], "r")
+			.contentFile = xfopen(input.list[i], "r")
 		};
 		renderTemplateFile(templFile, outFile, &renderCb, &data);
 		fclose(templFile);
@@ -236,7 +241,9 @@ int main() {
                 char *nameLink =
                     malloc(strlen(nameNoExt) + strlen(".html") + 1);
 		sprintf(nameLink, "%s.html", nameNoExt);
-		sprintf(sitebuf, "<li><a href=\"%s\">%s</a></li>\n", nameLink, nameNoExt);
+                sprintf(sitebuf, "<li><a href=\"%s\">%s</a></li>\n", nameLink,
+                        nameNoExt);
+		free(nameLink);
 		int len = strlen(sitebuf);
 		for (int y = 0; y < len; ++y) {
 			appendChar(&sitemap, sitebuf[y]);
@@ -249,10 +256,10 @@ int main() {
 	char *template;
 	FILE *templFile;
 	if (findTemplate("sitemap.html", &template)) {
-		templFile = fopen(template, "r");
+		templFile = xfopen(template, "r");
 	} else {
 		findTemplate("index.html", &template);
-		templFile = fopen(template, "r");
+		templFile = xfopen(template, "r");
 	}
 	renderData data = {
 		.siteName = "asklipiosd",

@@ -1,2 +1,2 @@
 main:
-	cc -Wall -Wextra $(pkgconf --cflags --libs libmarkdown) main.c templ.c -o ssg
+	cc -Wall -Wextra $(pkg-config --cflags --libs libmarkdown) main.c templ.c -o ssg
