@@ -50,10 +50,12 @@ int walk(const char *c, int (*callback)(fsobj, char *, void *), void *usr) {
 			int n = strlen(c) + strlen(de->d_name) + 2;
 			char nd[n];
 			snprintf(nd, n, "%s/%s", c, de->d_name);
-			if (callback(D, nd, usr) == -1) {
+                        if (callback(D, nd, usr) == -1) {
+			        closedir(d);
 				return -1;
 			}
 			if (walk(nd, callback, usr) == -1) {
+			        closedir(d);
 				return -1;
 
 			}
@@ -63,6 +65,7 @@ int walk(const char *c, int (*callback)(fsobj, char *, void *), void *usr) {
 			char nd[n];
 			snprintf(nd, n, "%s/%s", c, de->d_name);
 			if (callback(F, nd, usr) == -1) {
+			        closedir(d);
 				return -1;
 			}
 		}
@@ -90,13 +93,14 @@ char *baseNoExt(const char *p) {
 
 int templCb(fsobj t, char *c, void *data) {
 	templStatus* d = (templStatus *) data;
-	char *fname = stripExt(d->given);
 	if (t == F){
+	        char *fname = stripExt(d->given);
 		char *one = baseNoExt(fname);
 		char *two = baseNoExt(c);
 		bool yes  = !strcmp(one, two);
 		free(one);
-		free(two);
+                free(two);
+		free(fname);
 		if (yes) {
 			d->success = true;
 			d->output = malloc(sizeof(char) * (strlen(c) + 1));
@@ -179,7 +183,10 @@ char *renderCb(char *c, void *user) {
 		char *html;
 		mkd_document(m, &html);
                 mkd_free_flags(flags);
-		return html;
+                char *b = strdup(html);
+		mkd_cleanup(m);
+                free(buf);
+		return b;
 	} else if (!strcmp(c, "sitename")) {
 		return data->siteName;
 	} else {
@@ -247,7 +254,12 @@ int main() {
 		int len = strlen(sitebuf);
 		for (int y = 0; y < len; ++y) {
 			appendChar(&sitemap, sitebuf[y]);
-		}
+                }
+                free(sitebuf);
+                free(template);
+                free(nameNoExt);
+		free(input.list[i]);
+		fclose(data.contentFile);
 	}
 	for (int i = 0; i < 5; i++) {
 		appendChar(&sitemap, "</ul>"[i]);
