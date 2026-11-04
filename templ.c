@@ -33,7 +33,7 @@ char *renderTemplate(const char *in,char *(*cb)(char *, void *), void *user) {
 		.buf = malloc(sizeof(char) * og_len),
 	};
 
-	for (int i = 0; i < og_len; ++i) {
+	for (size_t i = 0; i < og_len; ++i) {
 		if (in[i + 1] == SEP[1] && in[i] == SEP[0]) {
 			if (inSection) {
 				inSection = false;
@@ -41,7 +41,7 @@ char *renderTemplate(const char *in,char *(*cb)(char *, void *), void *user) {
 				appendChar(&lastId, '\0');
 				char *ret =  cb(lastId.buf, user);
 				size_t retlen = strlen(ret);
-				for (int y = 0; y < retlen; ++y) {
+				for (size_t y = 0; y < retlen; ++y) {
 					appendChar(&output, ret[y]);
 				}
 				free(lastId.buf);
@@ -87,7 +87,7 @@ void renderTemplateFile(FILE *inf,FILE *out, char *(*cb)(char *, void *), void *
 	bool inSection = false;
 	str lastId;
 	initChar(&lastId);
-	for (int i = 0; i < og_len; ++i) {
+	for (size_t i = 0; i < og_len; ++i) {
 		if (in[i + 1] == SEP[1] && in[i] == SEP[0]) {
 			if (inSection) {
 				inSection = false;
@@ -95,7 +95,7 @@ void renderTemplateFile(FILE *inf,FILE *out, char *(*cb)(char *, void *), void *
 				appendChar(&lastId, '\0');
 				char *ret =  cb(lastId.buf, user);
 				size_t retlen = strlen(ret);
-				for (int y = 0; y < retlen; ++y) {
+				for (size_t y = 0; y < retlen; ++y) {
 					fputc(ret[y], out);
 				}
 				free(lastId.buf);

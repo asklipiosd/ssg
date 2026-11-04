@@ -113,6 +113,7 @@ int templCb(fsobj t, char *c, void *data) {
 }
 
 int rmCb(fsobj t, char *c, void *data) {
+  (void) data;
   if (t == F) {
     remove(c);
   }
@@ -227,7 +228,7 @@ int main() {
 
 	walk("articles", &inputCb, (void *) &input);
 
-	for (int i = 0; i < input.len; ++i) {
+	for (size_t i = 0; i < input.len; ++i) {
 		char *template;
 		FILE *templFile;
 		if (findTemplate(input.list[i], &template)) {
