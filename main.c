@@ -25,7 +25,8 @@ typedef struct {
 typedef struct {
 	char         *siteName;
 	FILE      *contentFile;
-	char          *content;
+        char          *content;
+        char            *title;
 } renderData;
 
 FILE *xfopen(const char *path, const char *mode) {
@@ -111,6 +112,13 @@ int templCb(fsobj t, char *c, void *data) {
 	return 0;
 }
 
+int rmCb(fsobj t, char *c, void *data) {
+  if (t == F) {
+    remove(c);
+  }
+  return 0;
+}
+
 bool findTemplate(char* c, char **out) {
 	templStatus d = {
 		.output = NULL,
@@ -189,6 +197,8 @@ char *renderCb(char *c, void *user) {
 		return b;
 	} else if (!strcmp(c, "sitename")) {
 		return data->siteName;
+	} else if (!strcmp(c, "title")) {
+		return data->title;
 	} else {
 		char *ptr = malloc(sizeof(char) * 1);
 		ptr[0] = '\0';
@@ -202,7 +212,8 @@ int main() {
 //	FILE *fo = xfopen("out.html", "w");
 //	MMIOT *m = mkd_in(f, mkd_flags());
 //	markdown(m, fo, mkd_flags());;
-	charList input= {
+        walk("out", &rmCb, NULL);
+        charList input = {
 		.cap = 5,
 		.len = 0,
 		.list = malloc(sizeof(char *) * 5)
@@ -237,8 +248,9 @@ int main() {
 		FILE *outFile = xfopen(outName, "w");
                 renderData data = {
                   .siteName = "asklipiosd",
-		  .content = "\0",
-			.contentFile = xfopen(input.list[i], "r")
+                  .content = "\0",
+		  .title = nameNoExt,
+		  .contentFile = xfopen(input.list[i], "r")
 		};
 		renderTemplateFile(templFile, outFile, &renderCb, &data);
 		fclose(templFile);
@@ -272,10 +284,12 @@ int main() {
 	} else {
 		findTemplate("index.html", &template);
 		templFile = xfopen(template, "r");
-	}
-	renderData data = {
-		.siteName = "asklipiosd",
-		.content = sitemap.buf
+        }
+
+        renderData data = {
+          .siteName = "asklipiosd",
+          .content = sitemap.buf,
+	  .title = "sitemap",
 	};
 	renderTemplateFile(templFile, sitemapFile, &renderCb, &data);
 }
