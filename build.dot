@@ -1,0 +1,19 @@
+digraph shin {
+  rankdir="LR";
+  graph [fontname="serif"];
+  node [fontsize=10, fontname="serif", shape=box, height=0.25];
+  edge [fontsize=10, fontname="serif"];
+  n0 [label="default", shape=box, style="dashed,bold"];
+  n1 [label="main.o", shape=box];
+  n2 [label="templ.o", shape=box];
+  n3 [label="run", shape=box, style=dashed];
+  n4 [label="main.c", shape=box];
+  n5 [label="templ.c", shape=box];
+  n6 [label="clean", shape=box, style=dashed];
+
+  n1 -> n0;
+  n2 -> n0;
+  n4 -> n1;
+  n5 -> n2;
+  n0 -> n3;
+}
