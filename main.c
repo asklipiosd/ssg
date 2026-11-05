@@ -144,8 +144,8 @@ bool findTemplate(char* c, char **out) {
 // 	| img.png
 // articles
 // 	| programming
-// 		| c_sucks.md        -> programming/c_sucks.html
-// 		| I_stil_use_c.md   -> programming/I_stil_use_c.html
+// 		| c_sucks.md        -> c_sucks.html
+// 		| I_stil_use_c.md   -> I_stil_use_c.html
 // 	| about
 // 		| about.md          -> about.html
 // out                              -> self explanatory
@@ -163,6 +163,10 @@ void appendFileList(charList *s, char *c) {
 int inputCb(fsobj t, char *c, void *data) {
 	charList *list = (charList *) data;
 	if (t == F) {
+		size_t n = strlen(c);
+		if (n < 3 || strcmp(c + n - 3, ".md") != 0) {
+                  return 0;
+		}
 		char *elem = malloc(sizeof(char) * (strlen(c) + 1));
 		strcpy(elem, c);
 		appendFileList(list, elem);
@@ -186,9 +190,12 @@ char *renderCb(char *c, void *user) {
 		
 		size_t n = fread(buf, 1, (size_t)size, data->contentFile);
 		buf[n] = '\0';
-		mkd_flag_t *flags = mkd_flags();
-		MMIOT *m = mkd_string(buf, n, flags);
-		mkd_compile(m, flags);
+                mkd_flag_t *flags = mkd_flags();
+		mkd_set_flag_num(flags, MKD_FENCEDCODE);
+		MMIOT *m = mkd_string(buf, n, NULL);
+                if (!mkd_compile(m, flags)) {
+		  printf("oops\n");
+                }
 		char *html;
 		mkd_document(m, &html);
                 mkd_free_flags(flags);
@@ -292,5 +299,7 @@ int main() {
           .content = sitemap.buf,
 	  .title = "sitemap",
 	};
-	renderTemplateFile(templFile, sitemapFile, &renderCb, &data);
+        renderTemplateFile(templFile, sitemapFile, &renderCb, &data);
+	fclose(templFile);
+	fclose(sitemapFile);
 }

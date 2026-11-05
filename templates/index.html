@@ -13,6 +13,9 @@
 	  <a href="sitemap.html">
 	    sitemap
 	  </a>
+	  <a href="about.html">
+	    about
+	  </a>
 	  <a href="https://github.com/asklipiosd">
 	    github
 	  </a>
@@ -29,6 +32,7 @@
 		margin-inline: auto;
 		margin-block: 1em;
 	}
+
 	body {
 		font-family: sans-serif;
 		line-height: 1.25;
@@ -38,9 +42,31 @@
 		padding-left: 1em;
 		padding-right: 1em;
 	}
+
 	nav {
                 display: flex;
                 gap: 1rem;
 	}
+
+	pre {
+	    border: 1px solid currentColor;
+	    border-radius: 1px;
+	    padding: 0.75em 1em;
+	    margin-block: 1em;
+	    overflow-x: auto;
+	}
+	
+	pre code {
+	    font-family: inherit;   /* same font as the body text */
+	    font-size: inherit;
+	    line-height: inherit;
+	    white-space: pre;       /* keep indentation and line breaks */
+	}
+	
+	code {
+	    font-family: ui-monospace, monospace;
+	    font-size: 0.95em;
+	}
+
 </style>
 </html>
