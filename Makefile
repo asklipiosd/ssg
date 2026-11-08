@@ -3,20 +3,25 @@ INCLUDE := $(shell pkg-config --cflags libmarkdown)
 LINK    := $(shell pkg-config --libs   libmarkdown)
 FLAGS   := -Wall -Wextra -g
 BIN     := ssg
+BLD_DIR := build
+
+MAIN    := ${BLD_DIR}/main.o
+TEMPL   := ${BLD_DIR}/templ.o
+WALK    := ${BLD_DIR}/walk.o
 
 .PHONY: default run clean
 
-default: main.o templ.o
-	${CC} ${FLAGS} main.o templ.o  ${LINK} -o ${BIN}
-
+default: ${MAIN} ${TEMPL} ${WALK}
+	${CC} ${FLAGS} ${MAIN} ${TEMPL} ${WALK} ${LINK} -o ${BIN}
 run: default
 	./${BIN}
-
-main.o: main.c
+${MAIN}: main.c
 	${CC} ${FLAGS} ${INCLUDE} -c $< -o $@
 
-templ.o: templ.c
+${TEMPL}: templ.c
 	${CC} ${FLAGS} ${INCLUDE} -c $< -o $@
 
+${WALK}: walk.c
+	${CC} ${FLAGS} ${INCLUDE} -c $< -o $@
 clean:
-	rm main.o templ.o ${BIN}
+	rm ${MAIN} ${TEMPL} ${WALK} ${BIN}
