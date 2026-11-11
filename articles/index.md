@@ -6,4 +6,4 @@ from Greece. Here you can find stuff about:
 - programs I write (mostly c)
 - programs I like
 
-![painting](assets/img.jpg)
+![globe](assets/img1.gif)

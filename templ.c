@@ -97,8 +97,9 @@ void renderTemplateFile(FILE *inf,FILE *out, char *(*cb)(char *, void *), void *
 				size_t retlen = strlen(ret);
 				for (size_t y = 0; y < retlen; ++y) {
 					fputc(ret[y], out);
-				}
-				free(lastId.buf);
+                                }
+				free(ret);
+                                free(lastId.buf);
 				initChar(&lastId);
 				continue;
 			} else {
@@ -112,5 +113,7 @@ void renderTemplateFile(FILE *inf,FILE *out, char *(*cb)(char *, void *), void *
 		} else {
 			appendChar(&lastId, in[i]);
 		}
-	}
+        }
+        free(lastId.buf);
+	free(in);
 }

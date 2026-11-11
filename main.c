@@ -1,13 +1,14 @@
-#include <mkdio.h>
-#include <stdio.h>
-#include <dirent.h>
-#include <stdbool.h>
-#include <stdlib.h>
-#include <string.h>
-#include <libgen.h>
-
-#include "walk.h"
-#include "templ.h"
+#include     <mkdio.h>
+#include     <stdio.h>
+#include    <dirent.h>
+#include   <stdbool.h>
+#include    <stdlib.h>
+#include    <string.h>
+#include    <libgen.h>
+#include   <threads.h>
+#include <stdatomic.h>
+#include      "walk.h"
+#include     "templ.h"
 
 typedef struct {
 	char *given;
@@ -39,7 +40,11 @@ char *stripExt(const char *d) {
 	const char *dot = strrchr(d, '.');
 	const char *slash = strrchr(d, '/');
 	size_t len = (dot && (!slash || dot > slash)) ? (size_t)(dot - d) : strlen(d);
-	char *r = malloc(len + 1);
+        char *r = malloc(len + 1);
+        if (!r) {
+          fputs("out of memory\n", stderr);
+          exit(1);
+	}
 	memcpy(r, d, len);
 	r[len] = '\0';
 	return r;
@@ -136,7 +141,7 @@ char *renderCb(char *c, void *user) {
 	renderData *data = (renderData *) user;
         if (!strcmp(c, "content")) {
                 if (data->content[0] != '\0') {
-		  return data->content;
+		  return strdup(data->content);
                 }
 		if (fseek(data->contentFile, 0, SEEK_END) != 0) return NULL;
 		long size = ftell(data->contentFile);
@@ -162,9 +167,9 @@ char *renderCb(char *c, void *user) {
                 free(buf);
 		return b;
 	} else if (!strcmp(c, "sitename")) {
-		return data->siteName;
+	  return strdup(data->siteName);
 	} else if (!strcmp(c, "title")) {
-		return data->title;
+	  return strdup(data->title);
 	} else {
 		char *ptr = malloc(sizeof(char) * 1);
 		ptr[0] = '\0';
@@ -172,6 +177,66 @@ char *renderCb(char *c, void *user) {
 	}
 }
 
+void genFromFileName(char *input) {
+  char *template;
+  FILE *templFile;
+  if (findTemplate(input, &template)) {
+    templFile = xfopen(template, "r");
+  } else {
+    findTemplate("index.html", &template);
+    templFile = xfopen(template, "r");
+  }
+  char *base = basename(input);
+  char *nameNoExt = stripExt(base);
+  char outName[
+	       strlen("out/")                   +
+	       strlen(nameNoExt)                +
+	       strlen(".html")                  +
+	       1
+  ];
+  sprintf(outName, "out/%s.html", nameNoExt);
+  FILE *outFile = xfopen(outName, "w");
+  renderData data = {
+    .siteName = "asklipiosd",
+    .content = "\0",
+    .title = nameNoExt,
+    .contentFile = xfopen(input, "r")
+  };
+  renderTemplateFile(templFile, outFile, &renderCb, &data);
+  fclose(templFile);
+  
+  char *nameLink =malloc(strlen(nameNoExt) + strlen(".html") + 1);
+  sprintf(nameLink, "%s.html", nameNoExt);
+  free(nameLink);
+  free(template);
+  free(nameNoExt);
+  fclose(data.contentFile);
+}
+
+void genSitemap(str *sitemap, char *input) {
+  char *base = basename(input);
+  char *nameNoExt = stripExt(base);
+  char outName[
+	       strlen("out/")                   +
+	       strlen(nameNoExt)                +
+	       strlen(".html")                  +
+	       1
+  ];
+  sprintf(outName, "out/%s.html", nameNoExt);
+  char *sitebuf = malloc(strlen("<ul><a href=\"\"></a></ul>\n") +
+			 strlen(outName) + strlen(nameNoExt) + 1);
+  char *nameLink =malloc(strlen(nameNoExt) + strlen(".html") + 1);
+  sprintf(nameLink, "%s.html", nameNoExt);
+  sprintf(sitebuf, "<li><a href=\"%s\">%s</a></li>\n", nameLink,
+	  nameNoExt);
+  int len = strlen(sitebuf);
+  for (int y = 0; y < len; ++y) {
+    appendChar(sitemap, sitebuf[y]);
+  }
+  free(sitebuf);
+  free(nameLink);
+  free(nameNoExt);
+}
 
 int main() {
 //	FILE *f = xfopen("ex.md", "r");
@@ -193,51 +258,13 @@ int main() {
 
 	walk("articles", &inputCb, (void *) &input);
 
-	for (size_t i = 0; i < input.len; ++i) {
-		char *template;
-		FILE *templFile;
-		if (findTemplate(input.list[i], &template)) {
-			templFile = xfopen(template, "r");
-		} else {
-			findTemplate("index.html", &template);
-			templFile = xfopen(template, "r");
-		}
-		char *base = basename(input.list[i]);
-		char *nameNoExt = stripExt(base);
-		char outName[
-			strlen("out/")                   +
-			strlen(nameNoExt)                +
-			strlen(".html")                  +
-			1
-		];
-		sprintf(outName, "out/%s.html", nameNoExt);
-		FILE *outFile = xfopen(outName, "w");
-                renderData data = {
-                  .siteName = "asklipiosd",
-                  .content = "\0",
-		  .title = nameNoExt,
-		  .contentFile = xfopen(input.list[i], "r")
-		};
-		renderTemplateFile(templFile, outFile, &renderCb, &data);
-		fclose(templFile);
-
-                char *sitebuf = malloc(strlen("<ul><a href=\"\"></a></ul>\n") +
-                                       strlen(outName) + strlen(nameNoExt) + 1);
-                char *nameLink =
-                    malloc(strlen(nameNoExt) + strlen(".html") + 1);
-		sprintf(nameLink, "%s.html", nameNoExt);
-                sprintf(sitebuf, "<li><a href=\"%s\">%s</a></li>\n", nameLink,
-                        nameNoExt);
-		free(nameLink);
-		int len = strlen(sitebuf);
-		for (int y = 0; y < len; ++y) {
-			appendChar(&sitemap, sitebuf[y]);
-                }
-                free(sitebuf);
-                free(template);
-                free(nameNoExt);
-		free(input.list[i]);
-		fclose(data.contentFile);
+        for (size_t i = 0; i < input.len; ++i) {
+	  genFromFileName(input.list[i]);
+        }
+	printf("done with a\n");
+        for (size_t i = 0; i < input.len; ++i) {
+          genSitemap(&sitemap, input.list[i]);
+	  free(input.list[i]);
 	}
 	for (int i = 0; i < 5; i++) {
 		appendChar(&sitemap, "</ul>"[i]);
@@ -258,6 +285,9 @@ int main() {
 	  .title = "sitemap",
 	};
         renderTemplateFile(templFile, sitemapFile, &renderCb, &data);
+	free(input.list);
+        free(sitemap.buf);
+	free(template);
 	fclose(templFile);
 	fclose(sitemapFile);
 }
