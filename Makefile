@@ -1,7 +1,7 @@
 CC      := gcc
 INCLUDE := $(shell pkg-config --cflags libmarkdown)
 LINK    := $(shell pkg-config --libs   libmarkdown)
-FLAGS   := -Wall -Wextra -g
+FLAGS   := -Wall -Wextra -g -fsanitize=address,undefined
 BIN     := ssg
 BLD_DIR := build
 

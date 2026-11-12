@@ -12,7 +12,8 @@ I first made the ssg for this site in lua but filesystem operations were too lim
 and the markdown parser I wrote relied to much on regex. The current version is written
 in C using the great [orc/discount](https://www.pell.portland.or.us/~orc/Code/discount/)
 lib with my own simple template engine. I will probably write a little blog about the ssg in
-the future.
+the future. Currently the biggest feature is incremental builds and parallelised builds using
+threads.h from c11.
 
 ```c
 (void) website;

@@ -1,4 +1,5 @@
 #include     <mkdio.h>
+#include <stdint.h>
 #include     <stdio.h>
 #include    <dirent.h>
 #include   <stdbool.h>
@@ -8,6 +9,9 @@
 #include   <threads.h>
 #include <stdatomic.h>
 #include    <unistd.h>
+#include      <time.h>
+#include  <sys/stat.h>
+#include <sys/types.h>
 #include      "walk.h"
 #include     "templ.h"
 
@@ -33,7 +37,10 @@ typedef struct {
 
 FILE *xfopen(const char *path, const char *mode) {
     FILE *f = fopen(path, mode);
-    if (!f) { perror(path); exit(1); }
+    if (!f) {
+      perror(path);
+      exit(1);
+    }
     return f;
 }
 
@@ -77,13 +84,13 @@ int templCb(fsobj t, char *c, void *data) {
 	return 0;
 }
 
-int rmCb(fsobj t, char *c, void *data) {
-  (void) data;
-  if (t == F) {
-    remove(c);
-  }
-  return 0;
-}
+// int rmCb(fsobj t, char *c, void *data) {
+//   (void) data;
+//   if (t == F) {
+//     remove(c);
+//   }
+//   return 0;
+// }
 
 bool findTemplate(char* c, char **out) {
 	templStatus d = {
@@ -99,22 +106,6 @@ bool findTemplate(char* c, char **out) {
 	return false;
 }
 
-// -- [structure] -------------------------------------------------------------
-//
-// templates
-// 	| index.html
-// 	| menu.html
-// 	| foo.html
-// assets
-// 	| img.png
-// articles
-// 	| programming
-// 		| c_sucks.md        -> c_sucks.html
-// 		| I_stil_use_c.md   -> I_stil_use_c.html
-// 	| about
-// 		| about.md          -> about.html
-// out                              -> self explanatory
-
 void appendFileList(charList *s, char *c) {
 	if (s->len < s->cap) {
 	} else {
@@ -124,17 +115,51 @@ void appendFileList(charList *s, char *c) {
 	s->list[s->len] = c;
 	s->len++;
 }
-
+static bool newer(const char *a, const char *b) {
+    struct stat sa, sb;
+    if (stat(a, &sa) != 0) {return false;}
+    if (stat(b, &sb) != 0) {return true;}
+    return sa.st_mtim.tv_sec  > sb.st_mtim.tv_sec ||
+          (sa.st_mtim.tv_sec == sb.st_mtim.tv_sec &&
+           sa.st_mtim.tv_nsec > sb.st_mtim.tv_nsec);
+}
 int inputCb(fsobj t, char *c, void *data) {
 	charList *list = (charList *) data;
-	if (t == F) {
+        if (t == F) {
+                char *base = basename(c);
+                char *nameNoExt = stripExt(base);
+                char outName[
+			     strlen("out/")                   +
+			     strlen(nameNoExt)                +
+			     strlen(".html")                  +
+	        1];
+                char templName[
+			     strlen("templates/")             +
+			     strlen(nameNoExt)                +
+			     strlen(".html")                  +
+	        1];
+                sprintf(outName, "out/%s.html", nameNoExt);
+                sprintf(templName, "templates/%s.html", nameNoExt);
+		char *tmpl = NULL;
+                if (!findTemplate(c, &tmpl)) {
+                  findTemplate("index.html", &tmpl);
+		};
+		bool upToDate = newer(outName, c) && (!tmpl || newer(outName, tmpl));
+		free(tmpl);
+                if (upToDate) {
+                  free(nameNoExt);
+                  return 0;
+		}
+
 		size_t n = strlen(c);
 		if (n < 3 || strcmp(c + n - 3, ".md") != 0) {
+		  free(nameNoExt);
                   return 0;
 		}
 		char *elem = malloc(sizeof(char) * (strlen(c) + 1));
 		strcpy(elem, c);
-		appendFileList(list, elem);
+                appendFileList(list, elem);
+		free(nameNoExt);
 	}
 	return 0;
 }
@@ -209,6 +234,7 @@ void genFromFileName(char *input) {
   
   char *nameLink =malloc(strlen(nameNoExt) + strlen(".html") + 1);
   sprintf(nameLink, "%s.html", nameNoExt);
+  printf("finished with file: %s\n", outName);
   free(nameLink);
   free(template);
   free(nameNoExt);
@@ -254,13 +280,69 @@ static int worker(void *arg) {
   return 0;
 }
 
+int removeOrphansCb(fsobj f, char *c, void *user) {
+  if (f == D) {
+    return 0;
+  }
+  char *base = basename(c);
+  char *nameNoExt = stripExt(base);
+  char inName[
+	       strlen("articles/")              +
+	       strlen(nameNoExt)                +
+	       strlen(".md")                    +
+	       1
+  ];
+  if (!strcmp(c, "out/sitemap.html")) {
+    free(nameNoExt);
+    return 0;
+  }
+  sprintf(inName, "articles/%s.md", nameNoExt);
+  if (access(inName, F_OK) != 0) {
+    char outName[
+		 strlen("out/")                   +
+		 strlen(nameNoExt)                +
+		 strlen(".html")                  +
+		 1
+		 ];
+    sprintf(outName, "out/%s.html", nameNoExt);
+    remove(outName);
+  }
+  
+  free(nameNoExt);
+  return 0;
+}
+
+int sitemapCb(fsobj f, char *c, void *user) {
+	charList *list = (charList *) user;
+        if (f == F) {
+                char *base = basename(c);
+                char *nameNoExt = stripExt(base);
+		size_t n = strlen(c);
+		if (n < 3 || strcmp(c + n - 3, ".md") != 0) {
+		  free(nameNoExt);
+                  return 0;
+		}
+		char *elem = malloc(sizeof(char) * (strlen(c) + 1));
+		strcpy(elem, c);
+                appendFileList(list, elem);
+		free(nameNoExt);
+	}
+	return 0;
+}
+
 int main() {
 //	FILE *f = xfopen("ex.md", "r");
 //	FILE *fo = xfopen("out.html", "w");
 //	MMIOT *m = mkd_in(f, mkd_flags());
 //	markdown(m, fo, mkd_flags());;
-        walk("out", &rmCb, NULL);
+  // walk("out", &rmCb, NULL);
         charList input = {
+          .cap = 5,
+          .len = 0,
+	  .ptr = 0,
+		.list = malloc(sizeof(char *) * 5)
+	};
+        charList map = {
           .cap = 5,
           .len = 0,
 	  .ptr = 0,
@@ -273,7 +355,8 @@ int main() {
 		appendChar(&sitemap, "<ul>"[i]);
 	}
 
-	walk("articles", &inputCb, (void *) &input);
+	walk("out", &removeOrphansCb, &input);
+	walk("articles", &inputCb, &input);
         long N = sysconf(_SC_NPROCESSORS_ONLN);
 
 
@@ -286,9 +369,13 @@ int main() {
 	for (int i = 0; i < N; i++){
 	  thrd_join(th[i], NULL);
         }
-	  
-        for (size_t i = 0; i < input.len; ++i) {
-          genSitemap(&sitemap, input.list[i]);
+
+	walk("articles", &sitemapCb, &map);
+        for (size_t i = 0; i < map.len; ++i) {
+          genSitemap(&sitemap, map.list[i]);
+	  free(map.list[i]);
+	}
+	for (size_t i = 0; i < input.len; ++i) {
 	  free(input.list[i]);
 	}
 	for (int i = 0; i < 5; i++) {
@@ -312,6 +399,7 @@ int main() {
 	};
         renderTemplateFile(templFile, sitemapFile, &renderCb, &data);
 	free(input.list);
+	free(map.list);
         free(sitemap.buf);
 	free(template);
 	fclose(templFile);
