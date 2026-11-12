@@ -213,6 +213,7 @@ void genFromFileName(char *input) {
   free(template);
   free(nameNoExt);
   fclose(data.contentFile);
+  fclose(outFile);
 }
 
 void genSitemap(str *sitemap, char *input) {
