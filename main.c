@@ -7,6 +7,7 @@
 #include    <libgen.h>
 #include   <threads.h>
 #include <stdatomic.h>
+#include    <unistd.h>
 #include      "walk.h"
 #include     "templ.h"
 
@@ -19,7 +20,8 @@ typedef struct {
 typedef struct {
 	char **list;
 	size_t len;
-	size_t cap;
+        size_t cap;
+  atomic_size_t ptr;
 } charList;
 
 typedef struct {
@@ -238,6 +240,19 @@ void genSitemap(str *sitemap, char *input) {
   free(nameNoExt);
 }
 
+static int worker(void *arg) {
+  charList *job = arg;
+  size_t i = atomic_fetch_add(&job->ptr, 1);
+  while (true) {
+    if (i >= job->len) {
+      break;
+    }
+    genFromFileName(job->list[i]);
+    i = atomic_fetch_add(&job->ptr, 1);
+  }
+  return 0;
+}
+
 int main() {
 //	FILE *f = xfopen("ex.md", "r");
 //	FILE *fo = xfopen("out.html", "w");
@@ -245,8 +260,9 @@ int main() {
 //	markdown(m, fo, mkd_flags());;
         walk("out", &rmCb, NULL);
         charList input = {
-		.cap = 5,
-		.len = 0,
+          .cap = 5,
+          .len = 0,
+	  .ptr = 0,
 		.list = malloc(sizeof(char *) * 5)
 	};
 	FILE *sitemapFile = xfopen("out/sitemap.html", "w");
@@ -257,11 +273,19 @@ int main() {
 	}
 
 	walk("articles", &inputCb, (void *) &input);
+        long N = sysconf(_SC_NPROCESSORS_ONLN);
 
-        for (size_t i = 0; i < input.len; ++i) {
-	  genFromFileName(input.list[i]);
+
+	thrd_t th[N];
+	for (int i = 0; i < N; i++) {
+          if (thrd_create(&th[i], worker,(void *) &input) != thrd_success) {
+	    exit(1);
+	  }
+	}
+	for (int i = 0; i < N; i++){
+	  thrd_join(th[i], NULL);
         }
-	printf("done with a\n");
+	  
         for (size_t i = 0; i < input.len; ++i) {
           genSitemap(&sitemap, input.list[i]);
 	  free(input.list[i]);
@@ -269,7 +293,8 @@ int main() {
 	for (int i = 0; i < 5; i++) {
 		appendChar(&sitemap, "</ul>"[i]);
 	}
-	appendChar(&sitemap, '\0');
+        appendChar(&sitemap, '\0');
+
 	char *template;
 	FILE *templFile;
 	if (findTemplate("sitemap.html", &template)) {
