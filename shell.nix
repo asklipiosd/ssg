@@ -1,4 +1,3 @@
-# shell.nix
 { pkgs ? import <nixpkgs> {} }:
 
 pkgs.mkShell {
@@ -9,6 +8,6 @@ pkgs.mkShell {
   ];
 
   buildInputs = [
-    pkgs.discount   # libmarkdown, mkdio.h, and the markdown binary
+    pkgs.discount
   ];
 }

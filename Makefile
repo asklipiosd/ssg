@@ -15,13 +15,14 @@ default: ${MAIN} ${TEMPL} ${WALK}
 	${CC} ${FLAGS} ${MAIN} ${TEMPL} ${WALK} ${LINK} -o ${BIN}
 run: default
 	./${BIN}
-${MAIN}: main.c
+${MAIN}  : main.c
 	${CC} ${FLAGS} ${INCLUDE} -c $< -o $@
 
-${TEMPL}: templ.c
+${TEMPL} : templ.c
 	${CC} ${FLAGS} ${INCLUDE} -c $< -o $@
 
-${WALK}: walk.c
+${WALK}  : walk.c
 	${CC} ${FLAGS} ${INCLUDE} -c $< -o $@
+
 clean:
 	rm ${MAIN} ${TEMPL} ${WALK} ${BIN}

@@ -3,6 +3,7 @@
 Hi! My name is asklipios and I am a recreational programmer staright from Greece.
 This is my little corner of the internet to post my little computer stuff and other
 ponderings and shenanigans. In case you care:
+
 - this was written in emacs
 - I dualboot nixOS/ freebsd on the pc and fedora on the laptop
 - in the proccess of learning haskell

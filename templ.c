@@ -1,26 +1,11 @@
-#include <stddef.h>
-#include <string.h>
-#include <stdlib.h>
+#include  <stddef.h>
+#include  <string.h>
+#include  <stdlib.h>
 #include <stdbool.h>
-#include <stdio.h>
+#include   <stdio.h>
 
-#include "templ.h"
-
-void initChar(str *s) {
-	s->cap = 5;
-	s->len = 0;
-	s->buf = malloc(sizeof(char) * s->cap);
-}
-
-void appendChar(str *s, char c) {
-	if (s->len < s->cap) {
-	} else {
- 		s->cap = 2 * s->cap + 1;
-		s->buf = realloc(s->buf, s->cap);
-	}
-	s->buf[s->len] = c;
-	s->len++;
-}
+#include   "templ.h"
+#include    "str.h"
 
 char *renderTemplate(const char *in,char *(*cb)(char *, void *), void *user) {
 	size_t og_len = strlen(in);

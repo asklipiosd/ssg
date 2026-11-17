@@ -1,5 +1,4 @@
 #include     <mkdio.h>
-#include <stdint.h>
 #include     <stdio.h>
 #include    <dirent.h>
 #include   <stdbool.h>
@@ -12,14 +11,18 @@
 #include      <time.h>
 #include  <sys/stat.h>
 #include <sys/types.h>
+
 #include      "walk.h"
 #include     "templ.h"
+#include       "str.h"
 
 typedef struct {
 	char *given;
 	char *output;
 	bool success;
 } templStatus;
+
+// check
 
 typedef struct {
 	char **list;
@@ -281,6 +284,7 @@ static int worker(void *arg) {
 }
 
 int removeOrphansCb(fsobj f, char *c, void *user) {
+  (void) user;
   if (f == D) {
     return 0;
   }
